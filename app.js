@@ -220,6 +220,44 @@ function tagsText(tags) {
   return tags.join(' / ');
 }
 
+function normalizeImageUrl(rawUrl) {
+  const url = normalize(rawUrl);
+  if (!url) {
+    return '';
+  }
+  if (url.startsWith('//')) {
+    return `https:${url}`;
+  }
+  return url;
+}
+
+function twitterAltImageUrl(rawUrl) {
+  try {
+    const u = new URL(normalizeImageUrl(rawUrl));
+    if (u.hostname !== 'pbs.twimg.com') {
+      return '';
+    }
+    if (!u.pathname.startsWith('/media/')) {
+      return '';
+    }
+
+    // Handle URLs like /media/xxxx?format=png&name=medium
+    const last = u.pathname.split('/').pop() || '';
+    if (last.includes('.')) {
+      return '';
+    }
+    const format = u.searchParams.get('format');
+    if (!format) {
+      return '';
+    }
+    const name = u.searchParams.get('name');
+    const alt = `${u.origin}${u.pathname}.${format}${name ? `?name=${encodeURIComponent(name)}` : ''}`;
+    return alt;
+  } catch (_) {
+    return '';
+  }
+}
+
 function render() {
   const rows = filteredRows();
   statusEl.textContent = `${rows.length}件`;
@@ -229,8 +267,10 @@ function render() {
   }
 
   cardsEl.innerHTML = rows.map((r) => {
-    const img = r.imageUrl
-      ? `<img class="thumb" src="${escapeHtml(r.imageUrl)}" alt="${escapeHtml(r.answer)}" loading="lazy" />`
+    const imageUrl = normalizeImageUrl(r.imageUrl);
+    const altUrl = twitterAltImageUrl(imageUrl);
+    const img = imageUrl
+      ? `<img class="thumb" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(r.answer)}" loading="lazy" referrerpolicy="no-referrer" data-alt="${escapeHtml(altUrl)}" onerror="if(this.dataset.alt&&this.src!==this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt='';}else{this.style.display='none';}" />`
       : '<div class="thumb"></div>';
 
     return `
