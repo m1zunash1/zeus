@@ -20,6 +20,10 @@ function normalize(s) {
   return String(s || '').normalize('NFKC').trim();
 }
 
+function normalizeHeader(s) {
+  return normalize(s).toLowerCase();
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -70,9 +74,9 @@ function parseCsv(text) {
 }
 
 function headerIndex(headers, candidates) {
-  const map = new Map(headers.map((h, i) => [normalize(h), i]));
+  const map = new Map(headers.map((h, i) => [normalizeHeader(h), i]));
   for (const c of candidates) {
-    const idx = map.get(c);
+    const idx = map.get(normalizeHeader(c));
     if (idx !== undefined) {
       return idx;
     }
@@ -85,7 +89,7 @@ function toDataRows(csvRows) {
     return [];
   }
 
-  const headers = csvRows[0].map((x) => normalize(x));
+  const headers = csvRows[0].map((x) => normalizeHeader(x));
   const srcIdx = headerIndex(headers, ['出典url', '出典', 'source', 'url']);
   const ansIdx = headerIndex(headers, ['答え', 'answer']);
   const freqIdx = headerIndex(headers, ['頻度', 'freq', 'frequency']);
