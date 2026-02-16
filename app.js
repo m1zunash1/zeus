@@ -18,6 +18,10 @@ const state = {
   imageCache: new Map(),
 };
 
+function hasTagUi() {
+  return Boolean(tagInputEl && tagSuggestEl && selectedTagsEl);
+}
+
 function normalize(s) {
   return String(s || '').normalize('NFKC').trim();
 }
@@ -163,6 +167,9 @@ function buildTagIndex(rows) {
 }
 
 function renderSelectedTags() {
+  if (!hasTagUi()) {
+    return;
+  }
   selectedTagsEl.innerHTML = '';
   if (state.selectedTags.size === 0) {
     selectedTagsEl.innerHTML = '<span class="tag-chip">未選択</span>';
@@ -184,6 +191,9 @@ function renderSelectedTags() {
 }
 
 function renderTagSuggestions() {
+  if (!hasTagUi()) {
+    return;
+  }
   const q = normalize(tagInputEl.value).toLowerCase();
   const candidates = state.allTags
     .filter((t) => !state.selectedTags.has(t))
@@ -357,9 +367,11 @@ function init() {
   qInput.addEventListener('input', update);
   minFreq.addEventListener('change', update);
   maxFreq.addEventListener('change', update);
-  tagInputEl.addEventListener('input', () => {
-    renderTagSuggestions();
-  });
+  if (tagInputEl) {
+    tagInputEl.addEventListener('input', () => {
+      renderTagSuggestions();
+    });
+  }
 
   loadSheet().catch((err) => {
     statusEl.textContent = err.message || String(err);

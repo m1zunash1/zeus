@@ -144,10 +144,11 @@ select:focus {
 
 .thumb {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: auto;
   object-fit: contain;
   object-position: center;
   background: #ffe8f4;
+  display: block;
 }
 
 .meta {
