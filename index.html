@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xまとめサイト</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>ZEUS</h1>
+
+      <section class="panel">
+        <h2>検索</h2>
+        <div class="filters">
+          <div class="field">
+            <label for="qInput">答え検索</label>
+            <input id="qInput" type="text" placeholder="答えを入力" />
+          </div>
+
+          <div class="field">
+            <label for="minFreq">頻度</label>
+            <div class="freq-row">
+              <select id="minFreq">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+              <span>〜</span>
+              <select id="maxFreq">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5" selected>5</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>タグ（複数選択可）</label>
+            <div id="tagFilters" class="tag-filters"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>結果</h2>
+        <div id="status" class="status">読み込み中...</div>
+        <div id="cards" class="cards"></div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
