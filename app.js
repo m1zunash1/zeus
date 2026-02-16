@@ -2,9 +2,9 @@ const SHEET_ID = '1NU7bDfFbkyvyq8qEMARUixSO2jJOhGvljidnwo5Gq2c';
 const GID = '0';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
-const qInput = document.getElementById('qInput');
 const minFreq = document.getElementById('minFreq');
 const maxFreq = document.getElementById('maxFreq');
+const searchBtn = document.getElementById('searchBtn');
 const tagInputEl = document.getElementById('tagInput');
 const tagSuggestEl = document.getElementById('tagSuggest');
 const selectedTagsEl = document.getElementById('selectedTags');
@@ -16,10 +16,18 @@ const state = {
   allTags: [],
   selectedTags: new Set(),
   imageCache: new Map(),
+  hasSearched: false,
 };
+
+let tokenizerPromise = null;
+let tokenizer = null;
 
 function hasTagUi() {
   return Boolean(tagInputEl && tagSuggestEl && selectedTagsEl);
+}
+
+function hasCoreUi() {
+  return Boolean(minFreq && maxFreq && searchBtn && statusEl && cardsEl);
 }
 
 function normalize(s) {
@@ -28,6 +36,121 @@ function normalize(s) {
 
 function normalizeHeader(s) {
   return normalize(s).toLowerCase();
+}
+
+function toHiragana(s) {
+  return Array.from(normalize(s))
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      if (code >= 0x30a1 && code <= 0x30f6) {
+        return String.fromCharCode(code - 0x60);
+      }
+      return ch;
+    })
+    .join('');
+}
+
+function kanaFold(s) {
+  return toHiragana(normalize(s)).toLowerCase();
+}
+
+function containsKanji(s) {
+  return /[\u4e00-\u9faf]/.test(String(s || ''));
+}
+
+function parseTagToken(token) {
+  const t = normalize(token);
+  if (!t) {
+    return null;
+  }
+  const m = t.match(/^(.+?)[(（]([^)）]+)[)）]$/);
+  if (m) {
+    const label = normalize(m[1]);
+    const reading = normalize(m[2]);
+    return {
+      label,
+      reading,
+      key: label,
+      foldedLabel: kanaFold(label),
+      foldedReading: kanaFold(reading),
+    };
+  }
+  const folded = kanaFold(t);
+  return {
+    label: t,
+    reading: '',
+    key: t,
+    foldedLabel: folded,
+    foldedReading: '',
+  };
+}
+
+function getTokenReading(token) {
+  if (!token) {
+    return '';
+  }
+  const yomi = normalize(token.reading || token.pronunciation || '');
+  if (!yomi || yomi === '*') {
+    return '';
+  }
+  return toHiragana(yomi);
+}
+
+function buildReadingWithTokenizer(text) {
+  if (!tokenizer || !text) {
+    return '';
+  }
+  const tokens = tokenizer.tokenize(text);
+  if (!tokens || tokens.length === 0) {
+    return '';
+  }
+  const reading = tokens.map((t) => getTokenReading(t) || normalize(t.surface_form || '')).join('');
+  return toHiragana(reading);
+}
+
+async function ensureTokenizer() {
+  if (tokenizer) {
+    return tokenizer;
+  }
+  if (tokenizerPromise) {
+    return tokenizerPromise;
+  }
+  if (!window.kuromoji || !window.kuromoji.builder) {
+    return null;
+  }
+
+  tokenizerPromise = new Promise((resolve) => {
+    window.kuromoji.builder({ dictPath: 'https://unpkg.com/kuromoji@0.1.2/dict/' }).build((err, built) => {
+      if (err || !built) {
+        resolve(null);
+        return;
+      }
+      tokenizer = built;
+      resolve(tokenizer);
+    });
+  });
+
+  return tokenizerPromise;
+}
+
+async function enrichTagReadings(rows) {
+  const tk = await ensureTokenizer();
+  if (!tk) {
+    return;
+  }
+  for (const row of rows) {
+    for (const tag of row.tags || []) {
+      if (tag.reading || !containsKanji(tag.label)) {
+        continue;
+      }
+      const reading = buildReadingWithTokenizer(tag.label);
+      if (!reading) {
+        continue;
+      }
+      tag.reading = reading;
+      tag.foldedReading = kanaFold(reading);
+    }
+  }
 }
 
 function parseCsv(text) {
@@ -109,7 +232,7 @@ function toDataRows(csvRows) {
     const tagsRaw = normalize(r[tagsIdx] || '');
     const tags = tagsRaw
       .split(/[,\u3001]/)
-      .map((x) => normalize(x))
+      .map((x) => parseTagToken(x))
       .filter(Boolean);
     const imageUrl = normalize(r[imgIdx] || '');
     return { sourceUrl, answer, freq, tags, imageUrl };
@@ -163,7 +286,15 @@ async function enrichImages(rows) {
 }
 
 function buildTagIndex(rows) {
-  state.allTags = [...new Set(rows.flatMap((x) => x.tags || []).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+  const map = new Map();
+  for (const row of rows) {
+    for (const t of row.tags || []) {
+      if (!map.has(t.key)) {
+        map.set(t.key, t);
+      }
+    }
+  }
+  state.allTags = [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'ja'));
 }
 
 function renderSelectedTags() {
@@ -194,10 +325,15 @@ function renderTagSuggestions() {
   if (!hasTagUi()) {
     return;
   }
-  const q = normalize(tagInputEl.value).toLowerCase();
+  const qFold = kanaFold(tagInputEl.value);
   const candidates = state.allTags
-    .filter((t) => !state.selectedTags.has(t))
-    .filter((t) => !q || t.toLowerCase().includes(q))
+    .filter((t) => !state.selectedTags.has(t.key))
+    .filter((t) => {
+      if (!qFold) {
+        return true;
+      }
+      return t.foldedLabel.includes(qFold) || (t.foldedReading && t.foldedReading.includes(qFold));
+    })
     .slice(0, 30);
 
   tagSuggestEl.innerHTML = '';
@@ -210,9 +346,9 @@ function renderTagSuggestions() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tag-chip';
-    btn.textContent = t;
+    btn.textContent = t.reading ? `${t.label} (${t.reading})` : t.label;
     btn.addEventListener('click', () => {
-      state.selectedTags.add(t);
+      state.selectedTags.add(t.key);
       tagInputEl.value = '';
       renderSelectedTags();
       renderTagSuggestions();
@@ -232,7 +368,6 @@ function escapeHtml(s) {
 }
 
 function filteredRows() {
-  const q = normalize(qInput.value).toLowerCase();
   const min = Number(minFreq.value);
   const max = Number(maxFreq.value);
   const selectedTags = [...state.selectedTags];
@@ -240,14 +375,11 @@ function filteredRows() {
   const hi = Math.max(min, max);
 
   return state.rows.filter((r) => {
-    if (q && !r.answer.toLowerCase().includes(q)) {
-      return false;
-    }
     if (Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
       return false;
     }
     if (selectedTags.length > 0) {
-      const rowTags = new Set(r.tags || []);
+      const rowTags = new Set((r.tags || []).map((t) => t.key));
       const allMatched = selectedTags.every((t) => rowTags.has(t));
       if (!allMatched) {
         return false;
@@ -261,7 +393,7 @@ function tagsText(tags) {
   if (!tags || tags.length === 0) {
     return '-';
   }
-  return tags.join(' / ');
+  return tags.map((t) => t.label).join(' / ');
 }
 
 function freqStars(n) {
@@ -312,8 +444,17 @@ function twitterAltImageUrl(rawUrl) {
 }
 
 function render() {
+  if (!hasCoreUi()) {
+    return;
+  }
+  if (!state.hasSearched) {
+    statusEl.textContent = '条件を指定して「検索」を押してください。';
+    cardsEl.innerHTML = '';
+    return;
+  }
+
   const rows = filteredRows();
-  statusEl.textContent = `${rows.length}件`;
+  statusEl.textContent = `${rows.length}件ヒット`;
   if (rows.length === 0) {
     cardsEl.innerHTML = '<div>ヒットなし</div>';
     return;
@@ -343,6 +484,9 @@ function render() {
 }
 
 async function loadSheet() {
+  if (!hasCoreUi()) {
+    return;
+  }
   statusEl.textContent = '読み込み中...';
   cardsEl.innerHTML = '';
 
@@ -353,23 +497,44 @@ async function loadSheet() {
   const text = await res.text();
   const csvRows = parseCsv(text);
   state.rows = toDataRows(csvRows);
+  await enrichTagReadings(state.rows);
   buildTagIndex(state.rows);
   renderSelectedTags();
   renderTagSuggestions();
   render();
-  statusEl.textContent = `${state.rows.length}件（画像取得中...）`;
+  statusEl.textContent = '条件を指定して「検索」を押してください。';
   await enrichImages(state.rows);
-  render();
+  if (state.hasSearched) {
+    render();
+  }
 }
 
 function init() {
-  const update = () => render();
-  qInput.addEventListener('input', update);
+  if (!hasCoreUi()) {
+    console.warn('ZEUS: required DOM elements are missing. Check deployed index.html and app.js pair.');
+    return;
+  }
+  const update = () => {
+    if (state.hasSearched) {
+      render();
+    }
+  };
   minFreq.addEventListener('change', update);
   maxFreq.addEventListener('change', update);
+  searchBtn.addEventListener('click', () => {
+    state.hasSearched = true;
+    render();
+  });
   if (tagInputEl) {
     tagInputEl.addEventListener('input', () => {
       renderTagSuggestions();
+    });
+    tagInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        state.hasSearched = true;
+        render();
+      }
     });
   }
 

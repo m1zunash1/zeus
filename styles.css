@@ -51,9 +51,36 @@ h1 {
   font-size: 19px;
 }
 
+.search-btn {
+  margin-top: 10px;
+  width: 100%;
+  max-width: 220px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg, #ff83b4, #ff5f9f);
+  border: 1px solid #ea4f91;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+  box-shadow: 0 6px 12px rgba(234, 79, 145, 0.24);
+}
+
+.search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(234, 79, 145, 0.28);
+  filter: saturate(1.05);
+}
+
+.search-btn:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 4px 8px rgba(234, 79, 145, 0.24);
+}
+
 .filters {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr 1fr;
+  grid-template-columns: 0.9fr 1.1fr;
   gap: 10px;
 }
 
@@ -85,6 +112,12 @@ select:focus {
 .tag-picker {
   display: grid;
   gap: 6px;
+}
+
+.tag-help {
+  color: #8d5571;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .tag-suggest,
