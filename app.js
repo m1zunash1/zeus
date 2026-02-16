@@ -5,7 +5,9 @@ const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/t
 const qInput = document.getElementById('qInput');
 const minFreq = document.getElementById('minFreq');
 const maxFreq = document.getElementById('maxFreq');
-const tagFiltersEl = document.getElementById('tagFilters');
+const tagInputEl = document.getElementById('tagInput');
+const tagSuggestEl = document.getElementById('tagSuggest');
+const selectedTagsEl = document.getElementById('selectedTags');
 const statusEl = document.getElementById('status');
 const cardsEl = document.getElementById('cards');
 
@@ -156,25 +158,57 @@ async function enrichImages(rows) {
   await Promise.all(workers);
 }
 
-function buildTagFilters(rows) {
+function buildTagIndex(rows) {
   state.allTags = [...new Set(rows.flatMap((x) => x.tags || []).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
-  tagFiltersEl.innerHTML = '';
-  for (const t of state.allTags) {
+}
+
+function renderSelectedTags() {
+  selectedTagsEl.innerHTML = '';
+  if (state.selectedTags.size === 0) {
+    selectedTagsEl.innerHTML = '<span class="tag-chip">未選択</span>';
+    return;
+  }
+  for (const t of [...state.selectedTags].sort((a, b) => a.localeCompare(b, 'ja'))) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tag-chip active';
+    btn.textContent = `${t} ×`;
+    btn.addEventListener('click', () => {
+      state.selectedTags.delete(t);
+      renderSelectedTags();
+      renderTagSuggestions();
+      render();
+    });
+    selectedTagsEl.appendChild(btn);
+  }
+}
+
+function renderTagSuggestions() {
+  const q = normalize(tagInputEl.value).toLowerCase();
+  const candidates = state.allTags
+    .filter((t) => !state.selectedTags.has(t))
+    .filter((t) => !q || t.toLowerCase().includes(q))
+    .slice(0, 30);
+
+  tagSuggestEl.innerHTML = '';
+  if (candidates.length === 0) {
+    tagSuggestEl.innerHTML = '<span class="tag-chip">候補なし</span>';
+    return;
+  }
+
+  for (const t of candidates) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tag-chip';
-    btn.dataset.tag = t;
     btn.textContent = t;
     btn.addEventListener('click', () => {
-      if (state.selectedTags.has(t)) {
-        state.selectedTags.delete(t);
-      } else {
-        state.selectedTags.add(t);
-      }
-      btn.classList.toggle('active', state.selectedTags.has(t));
+      state.selectedTags.add(t);
+      tagInputEl.value = '';
+      renderSelectedTags();
+      renderTagSuggestions();
       render();
     });
-    tagFiltersEl.appendChild(btn);
+    tagSuggestEl.appendChild(btn);
   }
 }
 
@@ -218,6 +252,15 @@ function tagsText(tags) {
     return '-';
   }
   return tags.join(' / ');
+}
+
+function freqStars(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 1) {
+    return '-';
+  }
+  const c = Math.max(1, Math.min(5, Math.round(v)));
+  return '★'.repeat(c);
 }
 
 function normalizeImageUrl(rawUrl) {
@@ -279,7 +322,7 @@ function render() {
         <div class="meta">
           <div class="ans">${escapeHtml(r.answer)}</div>
           <div class="badges">
-            <span class="badge">頻度: ${Number.isFinite(r.freq) ? r.freq : '-'}</span>
+            <span class="badge">頻度: ${escapeHtml(freqStars(r.freq))}</span>
             <span class="badge">タグ: ${escapeHtml(tagsText(r.tags))}</span>
           </div>
           ${r.sourceUrl ? `<a class="src" href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener noreferrer">出典（X）を見る</a>` : ''}
@@ -300,7 +343,9 @@ async function loadSheet() {
   const text = await res.text();
   const csvRows = parseCsv(text);
   state.rows = toDataRows(csvRows);
-  buildTagFilters(state.rows);
+  buildTagIndex(state.rows);
+  renderSelectedTags();
+  renderTagSuggestions();
   render();
   statusEl.textContent = `${state.rows.length}件（画像取得中...）`;
   await enrichImages(state.rows);
@@ -312,6 +357,9 @@ function init() {
   qInput.addEventListener('input', update);
   minFreq.addEventListener('change', update);
   maxFreq.addEventListener('change', update);
+  tagInputEl.addEventListener('input', () => {
+    renderTagSuggestions();
+  });
 
   loadSheet().catch((err) => {
     statusEl.textContent = err.message || String(err);

@@ -82,11 +82,17 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(219, 111, 163, 0.2);
 }
 
-.tag-filters {
+.tag-picker {
+  display: grid;
+  gap: 6px;
+}
+
+.tag-suggest,
+.tag-selected {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  min-height: 44px;
+  min-height: 36px;
   padding: 6px;
   border: 1px solid #efb0d0;
   border-radius: 12px;
@@ -139,7 +145,8 @@ select:focus {
 .thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   background: #ffe8f4;
 }
 

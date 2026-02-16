@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Xまとめサイト</title>
+    <title>ZEUS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
@@ -25,26 +25,30 @@
             <label for="minFreq">頻度</label>
             <div class="freq-row">
               <select id="minFreq">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
+                <option value="1">★</option>
+                <option value="2">★★</option>
+                <option value="3">★★★</option>
+                <option value="4">★★★★</option>
+                <option value="5">★★★★★</option>
               </select>
               <span>〜</span>
               <select id="maxFreq">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5" selected>5</option>
+                <option value="1">★</option>
+                <option value="2">★★</option>
+                <option value="3">★★★</option>
+                <option value="4">★★★★</option>
+                <option value="5" selected>★★★★★</option>
               </select>
             </div>
           </div>
 
           <div class="field">
             <label>タグ（複数選択可）</label>
-            <div id="tagFilters" class="tag-filters"></div>
+            <div class="tag-picker">
+              <input id="tagInput" type="text" placeholder="タグを入力して検索" />
+              <div id="tagSuggest" class="tag-suggest"></div>
+              <div id="selectedTags" class="tag-selected"></div>
+            </div>
           </div>
         </div>
       </section>
