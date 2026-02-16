@@ -40,14 +40,15 @@
           <div class="field">
             <label>タグ（複数選択可）</label>
             <div class="tag-picker">
-              <input id="tagInput" type="text" placeholder="タグを入力して検索（ひらがな可）" />
-              <small class="tag-help">漢字タグは自動で読みを推定します（必要なら「安心(あんしん)」のように手入力も可）。</small>
+              <input id="tagInput" type="text" placeholder="タグを検索" />
               <div id="tagSuggest" class="tag-suggest"></div>
               <div id="selectedTags" class="tag-selected"></div>
             </div>
           </div>
         </div>
-        <button id="searchBtn" class="search-btn" type="button">検索</button>
+        <div class="search-row">
+          <button id="searchBtn" class="search-btn" type="button">検索</button>
+        </div>
       </section>
 
       <section class="panel">

@@ -15,19 +15,14 @@ const state = {
   rows: [],
   allTags: [],
   selectedTags: new Set(),
-  imageCache: new Map(),
   hasSearched: false,
 };
 
 let tokenizerPromise = null;
 let tokenizer = null;
 
-function hasTagUi() {
-  return Boolean(tagInputEl && tagSuggestEl && selectedTagsEl);
-}
-
 function hasCoreUi() {
-  return Boolean(minFreq && maxFreq && searchBtn && statusEl && cardsEl);
+  return Boolean(minFreq && maxFreq && searchBtn && statusEl && cardsEl && tagInputEl && tagSuggestEl && selectedTagsEl);
 }
 
 function normalize(s) {
@@ -75,12 +70,11 @@ function parseTagToken(token) {
       foldedReading: kanaFold(reading),
     };
   }
-  const folded = kanaFold(t);
   return {
     label: t,
     reading: '',
     key: t,
-    foldedLabel: folded,
+    foldedLabel: kanaFold(t),
     foldedReading: '',
   };
 }
@@ -104,8 +98,7 @@ function buildReadingWithTokenizer(text) {
   if (!tokens || tokens.length === 0) {
     return '';
   }
-  const reading = tokens.map((t) => getTokenReading(t) || normalize(t.surface_form || '')).join('');
-  return toHiragana(reading);
+  return toHiragana(tokens.map((t) => getTokenReading(t) || normalize(t.surface_form || '')).join(''));
 }
 
 async function ensureTokenizer() {
@@ -118,7 +111,6 @@ async function ensureTokenizer() {
   if (!window.kuromoji || !window.kuromoji.builder) {
     return null;
   }
-
   tokenizerPromise = new Promise((resolve) => {
     window.kuromoji.builder({ dictPath: 'https://unpkg.com/kuromoji@0.1.2/dict/' }).build((err, built) => {
       if (err || !built) {
@@ -129,28 +121,7 @@ async function ensureTokenizer() {
       resolve(tokenizer);
     });
   });
-
   return tokenizerPromise;
-}
-
-async function enrichTagReadings(rows) {
-  const tk = await ensureTokenizer();
-  if (!tk) {
-    return;
-  }
-  for (const row of rows) {
-    for (const tag of row.tags || []) {
-      if (tag.reading || !containsKanji(tag.label)) {
-        continue;
-      }
-      const reading = buildReadingWithTokenizer(tag.label);
-      if (!reading) {
-        continue;
-      }
-      tag.reading = reading;
-      tag.foldedReading = kanaFold(reading);
-    }
-  }
 }
 
 function parseCsv(text) {
@@ -172,31 +143,28 @@ function parseCsv(text) {
       }
       continue;
     }
-
     if (!inQuotes && ch === ',') {
       row.push(cell);
       cell = '';
       continue;
     }
-
     if (!inQuotes && (ch === '\n' || ch === '\r')) {
       if (ch === '\r' && next === '\n') {
         i += 1;
       }
       row.push(cell);
-      if (row.some((x) => String(x).trim() !== '')) {
+      if (row.some((x) => normalize(x) !== '')) {
         rows.push(row);
       }
       row = [];
       cell = '';
       continue;
     }
-
     cell += ch;
   }
 
   row.push(cell);
-  if (row.some((x) => String(x).trim() !== '')) {
+  if (row.some((x) => normalize(x) !== '')) {
     rows.push(row);
   }
   return rows;
@@ -219,112 +187,128 @@ function toDataRows(csvRows) {
   }
 
   const headers = csvRows[0].map((x) => normalizeHeader(x));
-  const srcIdx = headerIndex(headers, ['出典url', '出典', 'source', 'url']);
-  const ansIdx = headerIndex(headers, ['答え', 'answer']);
+  const memoIdx = headerIndex(headers, ['メモ', 'memo']);
+  const subMemoIdx = headerIndex(headers, ['サブメモ', 'submemo', 'sub memo']);
   const freqIdx = headerIndex(headers, ['頻度', 'freq', 'frequency']);
-  const tagsIdx = headerIndex(headers, ['タグ', 'tags', 'tag']);
-  const imgIdx = headerIndex(headers, ['画像url', '画像', 'image', 'imageurl', 'img']);
+  const tagsIdx = headerIndex(headers, ['タグ', 'tag', 'tags']);
 
-  return csvRows.slice(1).map((r) => {
-    const sourceUrl = normalize(r[srcIdx] || '');
-    const answer = normalize(r[ansIdx] || '');
-    const freq = Number(normalize(r[freqIdx] || ''));
-    const tagsRaw = normalize(r[tagsIdx] || '');
-    const tags = tagsRaw
-      .split(/[,\u3001]/)
-      .map((x) => parseTagToken(x))
-      .filter(Boolean);
-    const imageUrl = normalize(r[imgIdx] || '');
-    return { sourceUrl, answer, freq, tags, imageUrl };
-  }).filter((x) => x.answer);
+  return csvRows
+    .slice(1)
+    .map((r) => {
+      const memo = normalize(r[memoIdx] || '');
+      const subMemo = normalize(r[subMemoIdx] || '');
+      const freq = Number(normalize(r[freqIdx] || ''));
+      const tagsRaw = normalize(r[tagsIdx] || '');
+      const tags = tagsRaw
+        .split(/[,\u3001]/)
+        .map((x) => parseTagToken(x))
+        .filter(Boolean);
+      return { memo, subMemo, freq, tags };
+    })
+    .filter((x) => x.memo);
 }
 
-async function fetchImageFromSourceUrl(sourceUrl) {
-  if (!sourceUrl) {
-    return '';
+async function enrichTagReadings(rows) {
+  const tk = await ensureTokenizer();
+  if (!tk) {
+    return;
   }
-  if (state.imageCache.has(sourceUrl)) {
-    return state.imageCache.get(sourceUrl);
-  }
-
-  try {
-    const endpoint = `https://noembed.com/embed?url=${encodeURIComponent(sourceUrl)}`;
-    const res = await fetch(endpoint);
-    if (!res.ok) {
-      state.imageCache.set(sourceUrl, '');
-      return '';
-    }
-    const data = await res.json();
-    const thumb = normalize(data.thumbnail_url || '');
-    state.imageCache.set(sourceUrl, thumb);
-    return thumb;
-  } catch (_) {
-    state.imageCache.set(sourceUrl, '');
-    return '';
-  }
-}
-
-async function enrichImages(rows) {
-  const need = rows.filter((r) => !r.imageUrl && r.sourceUrl);
-  const concurrency = 4;
-  let index = 0;
-
-  async function worker() {
-    while (index < need.length) {
-      const i = index;
-      index += 1;
-      const row = need[i];
-      const img = await fetchImageFromSourceUrl(row.sourceUrl);
-      if (img) {
-        row.imageUrl = img;
+  for (const row of rows) {
+    for (const tag of row.tags) {
+      if (tag.reading || !containsKanji(tag.label)) {
+        continue;
       }
+      const reading = buildReadingWithTokenizer(tag.label);
+      if (!reading) {
+        continue;
+      }
+      tag.reading = reading;
+      tag.foldedReading = kanaFold(reading);
     }
   }
-
-  const workers = Array.from({ length: concurrency }, () => worker());
-  await Promise.all(workers);
 }
 
 function buildTagIndex(rows) {
   const map = new Map();
   for (const row of rows) {
-    for (const t of row.tags || []) {
-      if (!map.has(t.key)) {
-        map.set(t.key, t);
+    for (const tag of row.tags) {
+      if (!map.has(tag.key)) {
+        map.set(tag.key, tag);
       }
     }
   }
   state.allTags = [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'ja'));
 }
 
-function renderSelectedTags() {
-  if (!hasTagUi()) {
-    return;
+function freqStars(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 1) {
+    return '-';
   }
+  return '★'.repeat(Math.max(1, Math.min(5, Math.round(v))));
+}
+
+function tagsText(tags) {
+  if (!tags || tags.length === 0) {
+    return '-';
+  }
+  return tags.map((x) => x.label).join(' / ');
+}
+
+function filteredRows() {
+  const min = Number(minFreq.value);
+  const max = Number(maxFreq.value);
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const selected = [...state.selectedTags];
+
+  return state.rows.filter((r) => {
+    if (Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
+      return false;
+    }
+    if (selected.length > 0) {
+      const rowTags = new Set(r.tags.map((x) => x.key));
+      if (!selected.every((t) => rowTags.has(t))) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function renderSelectedTags() {
   selectedTagsEl.innerHTML = '';
   if (state.selectedTags.size === 0) {
     selectedTagsEl.innerHTML = '<span class="tag-chip">未選択</span>';
     return;
   }
-  for (const t of [...state.selectedTags].sort((a, b) => a.localeCompare(b, 'ja'))) {
+  for (const key of [...state.selectedTags].sort((a, b) => a.localeCompare(b, 'ja'))) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tag-chip active';
-    btn.textContent = `${t} ×`;
+    btn.textContent = `${key} ×`;
     btn.addEventListener('click', () => {
-      state.selectedTags.delete(t);
+      state.selectedTags.delete(key);
       renderSelectedTags();
       renderTagSuggestions();
-      render();
+      if (state.hasSearched) {
+        render();
+      }
     });
     selectedTagsEl.appendChild(btn);
   }
 }
 
 function renderTagSuggestions() {
-  if (!hasTagUi()) {
-    return;
-  }
   const qFold = kanaFold(tagInputEl.value);
   const candidates = state.allTags
     .filter((t) => !state.selectedTags.has(t.key))
@@ -332,7 +316,7 @@ function renderTagSuggestions() {
       if (!qFold) {
         return true;
       }
-      return t.foldedLabel.includes(qFold) || (t.foldedReading && t.foldedReading.includes(qFold));
+      return t.foldedLabel.includes(qFold) || t.foldedReading.includes(qFold);
     })
     .slice(0, 30);
 
@@ -346,107 +330,21 @@ function renderTagSuggestions() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tag-chip';
-    btn.textContent = t.reading ? `${t.label} (${t.reading})` : t.label;
+    btn.textContent = t.label;
     btn.addEventListener('click', () => {
       state.selectedTags.add(t.key);
       tagInputEl.value = '';
       renderSelectedTags();
       renderTagSuggestions();
-      render();
+      if (state.hasSearched) {
+        render();
+      }
     });
     tagSuggestEl.appendChild(btn);
   }
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-function filteredRows() {
-  const min = Number(minFreq.value);
-  const max = Number(maxFreq.value);
-  const selectedTags = [...state.selectedTags];
-  const lo = Math.min(min, max);
-  const hi = Math.max(min, max);
-
-  return state.rows.filter((r) => {
-    if (Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
-      return false;
-    }
-    if (selectedTags.length > 0) {
-      const rowTags = new Set((r.tags || []).map((t) => t.key));
-      const allMatched = selectedTags.every((t) => rowTags.has(t));
-      if (!allMatched) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-
-function tagsText(tags) {
-  if (!tags || tags.length === 0) {
-    return '-';
-  }
-  return tags.map((t) => t.label).join(' / ');
-}
-
-function freqStars(n) {
-  const v = Number(n);
-  if (!Number.isFinite(v) || v < 1) {
-    return '-';
-  }
-  const c = Math.max(1, Math.min(5, Math.round(v)));
-  return '★'.repeat(c);
-}
-
-function normalizeImageUrl(rawUrl) {
-  const url = normalize(rawUrl);
-  if (!url) {
-    return '';
-  }
-  if (url.startsWith('//')) {
-    return `https:${url}`;
-  }
-  return url;
-}
-
-function twitterAltImageUrl(rawUrl) {
-  try {
-    const u = new URL(normalizeImageUrl(rawUrl));
-    if (u.hostname !== 'pbs.twimg.com') {
-      return '';
-    }
-    if (!u.pathname.startsWith('/media/')) {
-      return '';
-    }
-
-    // Handle URLs like /media/xxxx?format=png&name=medium
-    const last = u.pathname.split('/').pop() || '';
-    if (last.includes('.')) {
-      return '';
-    }
-    const format = u.searchParams.get('format');
-    if (!format) {
-      return '';
-    }
-    const name = u.searchParams.get('name');
-    const alt = `${u.origin}${u.pathname}.${format}${name ? `?name=${encodeURIComponent(name)}` : ''}`;
-    return alt;
-  } catch (_) {
-    return '';
-  }
-}
-
 function render() {
-  if (!hasCoreUi()) {
-    return;
-  }
   if (!state.hasSearched) {
     statusEl.textContent = '条件を指定して「検索」を押してください。';
     cardsEl.innerHTML = '';
@@ -460,33 +358,23 @@ function render() {
     return;
   }
 
-  cardsEl.innerHTML = rows.map((r) => {
-    const imageUrl = normalizeImageUrl(r.imageUrl);
-    const altUrl = twitterAltImageUrl(imageUrl);
-    const img = imageUrl
-      ? `<img class="thumb" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(r.answer)}" loading="lazy" referrerpolicy="no-referrer" data-alt="${escapeHtml(altUrl)}" onerror="if(this.dataset.alt&&this.src!==this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt='';}else{this.style.display='none';}" />`
-      : '<div class="thumb"></div>';
-
-    return `
+  cardsEl.innerHTML = rows
+    .map(
+      (r) => `
       <article class="card">
-        ${img}
-        <div class="meta">
-          <div class="ans">${escapeHtml(r.answer)}</div>
-          <div class="badges">
-            <span class="badge">頻度: ${escapeHtml(freqStars(r.freq))}</span>
-            <span class="badge">タグ: ${escapeHtml(tagsText(r.tags))}</span>
-          </div>
-          ${r.sourceUrl ? `<a class="src" href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener noreferrer">出典（X）を見る</a>` : ''}
+        <div class="memo">${escapeHtml(r.memo)}</div>
+        ${r.subMemo ? `<div class="submemo">${escapeHtml(r.subMemo)}</div>` : ''}
+        <div class="badges">
+          <span class="badge">頻度: ${escapeHtml(freqStars(r.freq))}</span>
+          <span class="badge">タグ: ${escapeHtml(tagsText(r.tags))}</span>
         </div>
       </article>
-    `;
-  }).join('');
+    `
+    )
+    .join('');
 }
 
 async function loadSheet() {
-  if (!hasCoreUi()) {
-    return;
-  }
   statusEl.textContent = '読み込み中...';
   cardsEl.innerHTML = '';
 
@@ -494,49 +382,41 @@ async function loadSheet() {
   if (!res.ok) {
     throw new Error('シートを取得できませんでした。共有設定を確認してください。');
   }
-  const text = await res.text();
-  const csvRows = parseCsv(text);
-  state.rows = toDataRows(csvRows);
+  const csvText = await res.text();
+  state.rows = toDataRows(parseCsv(csvText));
   await enrichTagReadings(state.rows);
   buildTagIndex(state.rows);
   renderSelectedTags();
   renderTagSuggestions();
-  render();
   statusEl.textContent = '条件を指定して「検索」を押してください。';
-  await enrichImages(state.rows);
-  if (state.hasSearched) {
-    render();
-  }
 }
 
 function init() {
   if (!hasCoreUi()) {
-    console.warn('ZEUS: required DOM elements are missing. Check deployed index.html and app.js pair.');
+    console.warn('ZEUS: required DOM elements are missing.');
     return;
   }
-  const update = () => {
+
+  const onFilterChange = () => {
     if (state.hasSearched) {
       render();
     }
   };
-  minFreq.addEventListener('change', update);
-  maxFreq.addEventListener('change', update);
+
+  minFreq.addEventListener('change', onFilterChange);
+  maxFreq.addEventListener('change', onFilterChange);
+  tagInputEl.addEventListener('input', renderTagSuggestions);
+  tagInputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      state.hasSearched = true;
+      render();
+    }
+  });
   searchBtn.addEventListener('click', () => {
     state.hasSearched = true;
     render();
   });
-  if (tagInputEl) {
-    tagInputEl.addEventListener('input', () => {
-      renderTagSuggestions();
-    });
-    tagInputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        state.hasSearched = true;
-        render();
-      }
-    });
-  }
 
   loadSheet().catch((err) => {
     statusEl.textContent = err.message || String(err);

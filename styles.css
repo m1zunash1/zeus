@@ -1,24 +1,30 @@
 :root {
-  --bg1: #ffe6f2;
-  --bg2: #fde2ff;
-  --panel: #fff8fc;
-  --line: #f2bdd8;
-  --text: #5a2940;
-  --accent: #ff78ad;
+  --bg1: #ffe8f2;
+  --bg2: #ffeefe;
+  --panel: #fff9fd;
+  --line: #f1bfd6;
+  --text: #5b2642;
+  --muted: #8f5a77;
+  --pink: #ff5fa3;
+  --pink-strong: #f04a93;
+  --chip: #fff1f9;
+  --blue: #4c80dd;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  padding: 16px;
-  font-family: "M PLUS 1p", sans-serif;
-  color: var(--text);
-  background:
-    radial-gradient(circle at 20% 10%, #ffd7eb 0, #ffd7eb 22%, transparent 22%),
-    radial-gradient(circle at 80% 15%, #ffe9fa 0, #ffe9fa 18%, transparent 18%),
-    linear-gradient(160deg, var(--bg1), var(--bg2));
   min-height: 100vh;
+  padding: 16px;
+  color: var(--text);
+  font-family: "M PLUS 1p", sans-serif;
+  background:
+    radial-gradient(circle at 12% 8%, #ffd5e8 0, #ffd5e8 20%, transparent 21%),
+    radial-gradient(circle at 86% 16%, #ffe2f6 0, #ffe2f6 17%, transparent 18%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
 }
 
 .container {
@@ -27,14 +33,10 @@ body {
 }
 
 h1 {
-  margin: 0 0 4px;
-  font-size: 34px;
+  margin: 0 0 12px;
   text-align: center;
-}
-
-.sub {
-  margin: 0 0 16px;
-  color: #7a4660;
+  font-size: 34px;
+  letter-spacing: 0.08em;
 }
 
 .panel {
@@ -43,7 +45,7 @@ h1 {
   border-radius: 22px;
   padding: 14px;
   margin-bottom: 12px;
-  box-shadow: 3px 5px 10px rgba(228, 141, 182, 0.18);
+  box-shadow: 3px 6px 12px rgba(231, 129, 177, 0.16);
 }
 
 .panel h2 {
@@ -51,37 +53,10 @@ h1 {
   font-size: 19px;
 }
 
-.search-btn {
-  margin-top: 10px;
-  width: 100%;
-  max-width: 220px;
-  padding: 10px 14px;
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(180deg, #ff83b4, #ff5f9f);
-  border: 1px solid #ea4f91;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
-  box-shadow: 0 6px 12px rgba(234, 79, 145, 0.24);
-}
-
-.search-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 14px rgba(234, 79, 145, 0.28);
-  filter: saturate(1.05);
-}
-
-.search-btn:active {
-  transform: translateY(1px) scale(0.99);
-  box-shadow: 0 4px 8px rgba(234, 79, 145, 0.24);
-}
-
 .filters {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 .field label {
@@ -94,19 +69,32 @@ h1 {
 input,
 select {
   width: 100%;
-  font-size: 15px;
   padding: 9px 10px;
   border: 1px solid #efb0d0;
   border-radius: 12px;
   background: #fff;
   color: #462638;
+  font-size: 15px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 }
 
 input:focus,
 select:focus {
   outline: none;
   border-color: #db6fa3;
-  box-shadow: 0 0 0 3px rgba(219, 111, 163, 0.2);
+  box-shadow: 0 0 0 3px rgba(219, 111, 163, 0.18);
+}
+
+input:hover,
+select:hover {
+  transform: translateY(-1px);
+}
+
+.freq-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
 }
 
 .tag-picker {
@@ -114,19 +102,13 @@ select:focus {
   gap: 6px;
 }
 
-.tag-help {
-  color: #8d5571;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .tag-suggest,
 .tag-selected {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  min-height: 36px;
+  min-height: 38px;
   padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   border: 1px solid #efb0d0;
   border-radius: 12px;
   background: #fff;
@@ -134,27 +116,56 @@ select:focus {
 
 .tag-chip {
   border: 1px solid #f1b9d5;
-  background: #fff4fb;
-  color: #7a3d5f;
   border-radius: 999px;
+  background: var(--chip);
+  color: #7a3d5f;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   user-select: none;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.tag-chip:hover {
+  transform: translateY(-1px);
+  filter: saturate(1.05);
 }
 
 .tag-chip.active {
-  background: #4c80dd;
-  border-color: #3c70cc;
+  background: var(--blue);
+  border-color: #3f71ca;
   color: #fff;
 }
 
-.freq-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
-  align-items: center;
+.search-row {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-btn {
+  min-width: 220px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--pink-strong);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  background: linear-gradient(180deg, #ff84b5, var(--pink));
+  box-shadow: 0 6px 12px rgba(240, 74, 147, 0.24);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.search-btn:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 8px 14px rgba(240, 74, 147, 0.28);
+}
+
+.search-btn:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 4px 8px rgba(240, 74, 147, 0.24);
 }
 
 .status {
@@ -169,56 +180,54 @@ select:focus {
 }
 
 .card {
+  background: #fff;
   border: 1px solid #f2c4db;
   border-radius: 16px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.thumb {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  object-position: center;
-  background: #ffe8f4;
-  display: block;
-}
-
-.meta {
-  padding: 10px;
+  padding: 12px;
   display: grid;
-  gap: 5px;
+  gap: 8px;
+  transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
-.ans {
-  font-size: 18px;
-  font-weight: 800;
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(215, 120, 163, 0.16);
+}
+
+.memo {
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.submemo {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
 }
 
 .badges {
   display: flex;
-  gap: 6px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .badge {
-  display: inline-block;
   border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 12px;
-  font-weight: 700;
   background: #ffe3f1;
-}
-
-.src {
-  color: #904466;
-  text-decoration: none;
-  font-size: 13px;
+  color: #7a3d5f;
+  padding: 3px 9px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 @media (max-width: 760px) {
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .search-btn {
+    width: 100%;
+    max-width: 300px;
   }
 }
