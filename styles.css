@@ -179,8 +179,8 @@ select:hover {
   border-radius: 14px;
   background: #f5f6f9;
   box-shadow:
-    4px 4px 8px #d1d5dc,
-    -4px -4px 8px #ffffff;
+    2px 2px 5px #d5d9df,
+    -2px -2px 5px #ffffff;
 }
 
 .tag-suggest.open {
@@ -255,8 +255,8 @@ select:hover {
   margin-top: 14px;
   margin-bottom: 0;
   min-height: 24px;
-  font-weight: 700;
-  color: #3e444c;
+  font-weight: 600;
+  color: #4b525d;
 }
 
 .cards {
@@ -273,16 +273,16 @@ select:hover {
   border-radius: 20px;
   background: var(--surface);
   box-shadow:
-    4px 4px 8px #d1d5dc,
-    -4px -4px 8px #ffffff;
+    2px 2px 5px #d6dae1,
+    -2px -2px 5px #ffffff;
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
 .card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow:
-    5px 5px 10px #cfd4db,
-    -5px -5px 10px #ffffff;
+    3px 3px 7px #d2d6de,
+    -3px -3px 7px #ffffff;
 }
 
 .memo {
@@ -329,7 +329,7 @@ select:hover {
   background: #111417;
   color: #fff;
   border: none;
-  box-shadow: 2px 2px 5px #cfd3da, -2px -2px 5px #ffffff;
+  box-shadow: 1px 1px 3px #d3d7de, -1px -1px 3px #ffffff;
 }
 
 .tag-list {
@@ -352,7 +352,7 @@ select:hover {
 
 .tag-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 2px 2px 5px #d2d6dd, -2px -2px 5px #ffffff;
+  box-shadow: 1px 1px 3px #d6dae1, -1px -1px 3px #ffffff;
 }
 
 button {
