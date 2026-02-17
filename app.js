@@ -3,26 +3,25 @@ const GID = '0';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
 const minFreq = document.getElementById('minFreq');
-const maxFreq = document.getElementById('maxFreq');
+const freqView = document.getElementById('freqView');
 const searchBtn = document.getElementById('searchBtn');
 const tagInputEl = document.getElementById('tagInput');
 const tagSuggestEl = document.getElementById('tagSuggest');
-const selectedTagsEl = document.getElementById('selectedTags');
 const statusEl = document.getElementById('status');
 const cardsEl = document.getElementById('cards');
 
 const state = {
   rows: [],
   allTags: [],
-  selectedTags: new Set(),
+  selectedTagKey: '',
   hasSearched: false,
 };
 
-let tokenizerPromise = null;
 let tokenizer = null;
+let tokenizerPromise = null;
 
 function hasCoreUi() {
-  return Boolean(minFreq && maxFreq && searchBtn && statusEl && cardsEl && tagInputEl && tagSuggestEl && selectedTagsEl);
+  return Boolean(minFreq && freqView && searchBtn && tagInputEl && tagSuggestEl && statusEl && cardsEl);
 }
 
 function normalize(s) {
@@ -63,17 +62,17 @@ function parseTagToken(token) {
     const label = normalize(m[1]);
     const reading = normalize(m[2]);
     return {
+      key: label,
       label,
       reading,
-      key: label,
       foldedLabel: kanaFold(label),
       foldedReading: kanaFold(reading),
     };
   }
   return {
+    key: t,
     label: t,
     reading: '',
-    key: t,
     foldedLabel: kanaFold(t),
     foldedReading: '',
   };
@@ -133,7 +132,6 @@ function parseCsv(text) {
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
     const next = text[i + 1];
-
     if (ch === '"') {
       if (inQuotes && next === '"') {
         cell += '"';
@@ -185,14 +183,12 @@ function toDataRows(csvRows) {
   if (csvRows.length === 0) {
     return [];
   }
-
   const headers = csvRows[0].map((x) => normalizeHeader(x));
   const memoIdx = headerIndex(headers, ['メモ', 'memo']);
-  const subMemoIdx = headerIndex(headers, ['サブメモ', 'submemo', 'sub memo']);
+  const subMemoIdx = headerIndex(headers, ['サブメモ', 'submemo']);
   const freqIdx = headerIndex(headers, ['頻度', 'freq', 'frequency']);
   const tagsIdx = headerIndex(headers, ['タグ', 'tag', 'tags']);
 
-  // ヘッダー名が想定と少し違っても、先頭4列をフォールバックとして使う。
   const iMemo = memoIdx >= 0 ? memoIdx : 0;
   const iSubMemo = subMemoIdx >= 0 ? subMemoIdx : 1;
   const iFreq = freqIdx >= 0 ? freqIdx : 2;
@@ -205,14 +201,13 @@ function toDataRows(csvRows) {
       const subMemo = normalize(r[iSubMemo] || '');
       const freqRaw = normalize(r[iFreq] || '');
       const freq = /^[1-5]$/.test(freqRaw) ? Number(freqRaw) : null;
-      const tagsRaw = normalize(r[iTags] || '');
-      const tags = tagsRaw
+      const tags = normalize(r[iTags] || '')
         .split(/[,\u3001]/)
         .map((x) => parseTagToken(x))
         .filter(Boolean);
       return { memo, subMemo, freq, tags };
     })
-    .filter((x) => x.memo);
+    .filter((r) => r.memo);
 }
 
 async function enrichTagReadings(rows) {
@@ -266,27 +261,6 @@ function splitSubMemoLines(text) {
     .filter(Boolean);
 }
 
-function filteredRows() {
-  const min = Number(minFreq.value);
-  const max = Number(maxFreq.value);
-  const lo = Math.min(min, max);
-  const hi = Math.max(min, max);
-  const selected = [...state.selectedTags];
-
-  return state.rows.filter((r) => {
-    if (r.freq !== null && Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
-      return false;
-    }
-    if (selected.length > 0) {
-      const rowTags = new Set(r.tags.map((x) => x.key));
-      if (!selected.every((t) => rowTags.has(t))) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-
 function escapeHtml(s) {
   return String(s)
     .replaceAll('&', '&amp;')
@@ -296,63 +270,75 @@ function escapeHtml(s) {
     .replaceAll("'", '&#39;');
 }
 
-function renderSelectedTags() {
-  selectedTagsEl.innerHTML = '';
-  if (state.selectedTags.size === 0) {
-    selectedTagsEl.innerHTML = '<span class="tag-chip">未選択</span>';
-    return;
+function findExactTagFromInput() {
+  const qFold = kanaFold(tagInputEl.value);
+  if (!qFold) {
+    return '';
   }
-  for (const key of [...state.selectedTags].sort((a, b) => a.localeCompare(b, 'ja'))) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'tag-chip active';
-    btn.textContent = `${key} ×`;
-    btn.addEventListener('click', () => {
-      state.selectedTags.delete(key);
-      renderSelectedTags();
-      renderTagSuggestions();
-      if (state.hasSearched) {
-        render();
-      }
-    });
-    selectedTagsEl.appendChild(btn);
-  }
+  const exact = state.allTags.find((t) => t.foldedLabel === qFold || t.foldedReading === qFold);
+  return exact ? exact.key : '';
+}
+
+function filteredRows() {
+  const min = Number(minFreq.value);
+  const selectedTag = normalize(state.selectedTagKey);
+  const queryFold = kanaFold(tagInputEl.value);
+
+  return state.rows.filter((r) => {
+    if (r.freq !== null && Number.isFinite(r.freq) && r.freq < min) {
+      return false;
+    }
+    if (selectedTag) {
+      const rowTags = new Set(r.tags.map((t) => t.key));
+      return rowTags.has(selectedTag);
+    }
+    if (queryFold) {
+      return r.tags.some((t) => t.foldedLabel.startsWith(queryFold) || t.foldedReading.startsWith(queryFold));
+    }
+    return true;
+  });
+}
+
+function refreshFreqView() {
+  freqView.textContent = freqStars(Number(minFreq.value));
 }
 
 function renderTagSuggestions() {
   const qFold = kanaFold(tagInputEl.value);
-  const candidates = state.allTags
-    .filter((t) => !state.selectedTags.has(t.key))
-    .filter((t) => {
-      if (!qFold) {
-        return true;
-      }
-      return t.foldedLabel.includes(qFold) || t.foldedReading.includes(qFold);
-    })
-    .slice(0, 30);
-
-  tagSuggestEl.innerHTML = '';
-  if (candidates.length === 0) {
-    tagSuggestEl.innerHTML = '<span class="tag-chip">候補なし</span>';
+  if (!qFold) {
+    tagSuggestEl.innerHTML = '';
+    tagSuggestEl.classList.remove('open');
     return;
   }
 
-  for (const t of candidates) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'tag-chip';
-    btn.textContent = t.label;
+  const candidates = state.allTags
+    .filter((t) => t.foldedLabel.startsWith(qFold) || t.foldedReading.startsWith(qFold))
+    .slice(0, 12);
+
+  if (candidates.length === 0) {
+    tagSuggestEl.innerHTML = '';
+    tagSuggestEl.classList.remove('open');
+    return;
+  }
+
+  tagSuggestEl.innerHTML = candidates
+    .map((t) => `<button type="button" class="tag-option" data-tag="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`)
+    .join('');
+  tagSuggestEl.classList.add('open');
+
+  tagSuggestEl.querySelectorAll('.tag-option').forEach((btn) => {
     btn.addEventListener('click', () => {
-      state.selectedTags.add(t.key);
-      tagInputEl.value = '';
-      renderSelectedTags();
-      renderTagSuggestions();
+      const key = normalize(btn.getAttribute('data-tag'));
+      const tag = state.allTags.find((t) => t.key === key);
+      state.selectedTagKey = key;
+      tagInputEl.value = tag ? tag.label : key;
+      tagSuggestEl.innerHTML = '';
+      tagSuggestEl.classList.remove('open');
       if (state.hasSearched) {
         render();
       }
     });
-    tagSuggestEl.appendChild(btn);
-  }
+  });
 }
 
 function render() {
@@ -391,16 +377,15 @@ function render() {
     })
     .join('');
 
-  cardsEl.querySelectorAll('.tag-btn[data-tag]').forEach((el) => {
-    el.addEventListener('click', () => {
-      const key = normalize(el.getAttribute('data-tag'));
+  cardsEl.querySelectorAll('.tag-btn[data-tag]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = normalize(btn.getAttribute('data-tag'));
       if (!key) {
         return;
       }
-      state.selectedTags.clear();
-      state.selectedTags.add(key);
-      renderSelectedTags();
-      renderTagSuggestions();
+      const tag = state.allTags.find((t) => t.key === key);
+      state.selectedTagKey = key;
+      tagInputEl.value = tag ? tag.label : key;
       state.hasSearched = true;
       render();
     });
@@ -415,12 +400,11 @@ async function loadSheet() {
   if (!res.ok) {
     throw new Error('シートを取得できませんでした。共有設定を確認してください。');
   }
+
   const csvText = await res.text();
   state.rows = toDataRows(parseCsv(csvText));
   await enrichTagReadings(state.rows);
   buildTagIndex(state.rows);
-  renderSelectedTags();
-  renderTagSuggestions();
   statusEl.textContent = '条件を指定して「検索」を押してください。';
 }
 
@@ -431,29 +415,51 @@ function init() {
   }
 
   const onFilterChange = () => {
+    refreshFreqView();
     if (state.hasSearched) {
       render();
     }
   };
 
   minFreq.addEventListener('change', onFilterChange);
-  maxFreq.addEventListener('change', onFilterChange);
-  tagInputEl.addEventListener('input', renderTagSuggestions);
+  minFreq.addEventListener('input', onFilterChange);
+  tagInputEl.addEventListener('input', () => {
+    state.selectedTagKey = '';
+    renderTagSuggestions();
+  });
+  tagInputEl.addEventListener('focus', () => {
+    renderTagSuggestions();
+  });
   tagInputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      state.selectedTagKey = findExactTagFromInput();
+      tagSuggestEl.innerHTML = '';
+      tagSuggestEl.classList.remove('open');
       state.hasSearched = true;
       render();
     }
   });
   searchBtn.addEventListener('click', () => {
+    state.selectedTagKey = findExactTagFromInput();
+    tagSuggestEl.innerHTML = '';
+    tagSuggestEl.classList.remove('open');
     state.hasSearched = true;
     render();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target === tagInputEl || tagSuggestEl.contains(e.target)) {
+      return;
+    }
+    tagSuggestEl.classList.remove('open');
   });
 
   loadSheet().catch((err) => {
     statusEl.textContent = err.message || String(err);
   });
+
+  refreshFreqView();
 }
 
 init();

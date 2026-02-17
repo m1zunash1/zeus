@@ -6,56 +6,32 @@
     <title>ZEUS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600;700;800&family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="container">
       <h1>ZEUS</h1>
-
-      <section class="panel">
-        <h2>検索</h2>
-        <div class="filters">
-          <div class="field">
-            <label for="minFreq">頻度</label>
-            <div class="freq-row">
-              <select id="minFreq">
-                <option value="1">★</option>
-                <option value="2">★★</option>
-                <option value="3">★★★</option>
-                <option value="4">★★★★</option>
-                <option value="5">★★★★★</option>
-              </select>
-              <span>〜</span>
-              <select id="maxFreq">
-                <option value="1">★</option>
-                <option value="2">★★</option>
-                <option value="3">★★★</option>
-                <option value="4">★★★★</option>
-                <option value="5" selected>★★★★★</option>
-              </select>
-            </div>
+      <div class="controls-wrap">
+        <div class="controls">
+          <div class="freq-control">
+            <div id="freqView" class="freq-view" aria-live="polite">★</div>
+            <input id="minFreq" type="range" min="1" max="5" step="1" value="1" />
           </div>
-
-          <div class="field">
-            <label>タグ（複数選択可）</label>
-            <div class="tag-picker">
-              <input id="tagInput" type="text" placeholder="タグを検索" />
-              <div id="tagSuggest" class="tag-suggest"></div>
-              <div id="selectedTags" class="tag-selected"></div>
-            </div>
+          <div class="tag-picker">
+            <input id="tagInput" type="text" placeholder="タグを検索" />
+            <div id="tagSuggest" class="tag-suggest"></div>
           </div>
+          <button id="searchBtn" class="search-btn" type="button" aria-label="検索">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <line x1="16" y1="16" x2="21" y2="21"></line>
+            </svg>
+          </button>
         </div>
-        <div class="search-row">
-          <button id="searchBtn" class="search-btn" type="button">検索</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>結果</h2>
         <div id="status" class="status">読み込み中...</div>
-        <div id="cards" class="cards"></div>
-      </section>
+      </div>
+      <div id="cards" class="cards"></div>
     </main>
     <script src="https://unpkg.com/kuromoji@0.1.2/dist/kuromoji.js"></script>
     <script src="app.js"></script>
