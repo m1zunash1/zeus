@@ -2,8 +2,8 @@ const SHEET_ID = '1NU7bDfFbkyvyq8qEMARUixSO2jJOhGvljidnwo5Gq2c';
 const GID = '0';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
-const minFreq = document.getElementById('minFreq');
-const freqView = document.getElementById('freqView');
+const freqValueEl = document.getElementById('freqValue');
+const freqChipsEl = document.getElementById('freqChips');
 const searchBtn = document.getElementById('searchBtn');
 const tagInputEl = document.getElementById('tagInput');
 const tagSuggestEl = document.getElementById('tagSuggest');
@@ -17,11 +17,20 @@ const state = {
   hasSearched: false,
 };
 
+const FREQ_CHOICES = [
+  { value: '', label: 'ALL' },
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+];
+
 let tokenizer = null;
 let tokenizerPromise = null;
 
 function hasCoreUi() {
-  return Boolean(minFreq && freqView && searchBtn && tagInputEl && tagSuggestEl && statusEl && cardsEl);
+  return Boolean(freqValueEl && freqChipsEl && searchBtn && tagInputEl && tagSuggestEl && statusEl && cardsEl);
 }
 
 function normalize(s) {
@@ -128,7 +137,6 @@ function parseCsv(text) {
   let row = [];
   let cell = '';
   let inQuotes = false;
-
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
     const next = text[i + 1];
@@ -160,7 +168,6 @@ function parseCsv(text) {
     }
     cell += ch;
   }
-
   row.push(cell);
   if (row.some((x) => normalize(x) !== '')) {
     rows.push(row);
@@ -188,7 +195,6 @@ function toDataRows(csvRows) {
   const subMemoIdx = headerIndex(headers, ['サブメモ', 'submemo']);
   const freqIdx = headerIndex(headers, ['頻度', 'freq', 'frequency']);
   const tagsIdx = headerIndex(headers, ['タグ', 'tag', 'tags']);
-
   const iMemo = memoIdx >= 0 ? memoIdx : 0;
   const iSubMemo = subMemoIdx >= 0 ? subMemoIdx : 1;
   const iFreq = freqIdx >= 0 ? freqIdx : 2;
@@ -242,23 +248,12 @@ function buildTagIndex(rows) {
   state.allTags = [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'ja'));
 }
 
-function freqStars(n) {
-  const v = Number(n);
-  if (!Number.isFinite(v) || v < 1) {
-    return '-';
-  }
-  return '★'.repeat(Math.max(1, Math.min(5, Math.round(v))));
-}
-
 function splitSubMemoLines(text) {
   const raw = normalize(text);
   if (!raw) {
     return [];
   }
-  return raw
-    .split(/(?:\\\\|¥¥|￥￥)/)
-    .map((x) => normalize(x))
-    .filter(Boolean);
+  return raw.split(/(?:\\\\|¥¥|￥￥)/).map((x) => normalize(x)).filter(Boolean);
 }
 
 function escapeHtml(s) {
@@ -268,6 +263,34 @@ function escapeHtml(s) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function freqStars(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 1) {
+    return '-';
+  }
+  return '★'.repeat(Math.max(1, Math.min(5, Math.round(v))));
+}
+
+function renderFreqChips() {
+  const selected = normalize(freqValueEl.value);
+  freqChipsEl.innerHTML = '';
+  for (const c of FREQ_CHOICES) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `freq-chip ${selected === c.value ? 'active' : ''}`;
+    btn.dataset.value = c.value;
+    btn.textContent = c.label;
+    btn.addEventListener('click', () => {
+      freqValueEl.value = c.value;
+      renderFreqChips();
+      if (state.hasSearched) {
+        render();
+      }
+    });
+    freqChipsEl.appendChild(btn);
+  }
 }
 
 function findExactTagFromInput() {
@@ -280,12 +303,12 @@ function findExactTagFromInput() {
 }
 
 function filteredRows() {
-  const min = Number(minFreq.value);
+  const selectedFreq = normalize(freqValueEl.value);
   const selectedTag = normalize(state.selectedTagKey);
   const queryFold = kanaFold(tagInputEl.value);
 
   return state.rows.filter((r) => {
-    if (r.freq !== null && Number.isFinite(r.freq) && r.freq < min) {
+    if (selectedFreq && r.freq !== Number(selectedFreq)) {
       return false;
     }
     if (selectedTag) {
@@ -293,14 +316,13 @@ function filteredRows() {
       return rowTags.has(selectedTag);
     }
     if (queryFold) {
-      return r.tags.some((t) => t.foldedLabel.startsWith(queryFold) || t.foldedReading.startsWith(queryFold));
+      return r.tags.some((t) => t.foldedLabel.startsWith(queryFold)
+        || t.foldedReading.startsWith(queryFold)
+        || t.foldedLabel.includes(queryFold)
+        || t.foldedReading.includes(queryFold));
     }
     return true;
   });
-}
-
-function refreshFreqView() {
-  freqView.textContent = freqStars(Number(minFreq.value));
 }
 
 function renderTagSuggestions() {
@@ -312,7 +334,10 @@ function renderTagSuggestions() {
   }
 
   const candidates = state.allTags
-    .filter((t) => t.foldedLabel.startsWith(qFold) || t.foldedReading.startsWith(qFold))
+    .filter((t) => t.foldedLabel.startsWith(qFold)
+      || t.foldedReading.startsWith(qFold)
+      || t.foldedLabel.includes(qFold)
+      || t.foldedReading.includes(qFold))
     .slice(0, 12);
 
   if (candidates.length === 0) {
@@ -343,7 +368,7 @@ function renderTagSuggestions() {
 
 function render() {
   if (!state.hasSearched) {
-    statusEl.textContent = '条件を指定して「検索」を押してください。';
+    statusEl.textContent = '条件を指定して検索してください。';
     cardsEl.innerHTML = '';
     return;
   }
@@ -355,27 +380,23 @@ function render() {
     return;
   }
 
-  cardsEl.innerHTML = rows
-    .map((r) => {
-      const subLines = splitSubMemoLines(r.subMemo);
-      const subMemoHtml = subLines.length <= 1
-        ? (subLines[0] ? `<div class="submemo">${escapeHtml(subLines[0])}</div>` : '')
-        : `<ul class="submemo-list">${subLines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
-      const tagsHtml = r.tags.length === 0
-        ? '<span class="tag-btn empty">タグなし</span>'
-        : r.tags.map((t) => `<button type="button" class="tag-btn" data-tag="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`).join('');
-      return `
+  cardsEl.innerHTML = rows.map((r) => {
+    const subLines = splitSubMemoLines(r.subMemo);
+    const subMemoHtml = subLines.length <= 1
+      ? (subLines[0] ? `<div class="submemo">${escapeHtml(subLines[0])}</div>` : '')
+      : `<ul class="submemo-list">${subLines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+    const tagsHtml = r.tags.length === 0
+      ? '<span class="tag-btn empty">タグなし</span>'
+      : r.tags.map((t) => `<button type="button" class="tag-btn" data-tag="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`).join('');
+    return `
       <article class="card">
         <span class="badge freq-corner">${escapeHtml(freqStars(r.freq))}</span>
         <div class="memo">${escapeHtml(r.memo)}</div>
         ${subMemoHtml}
-        <div class="badges">
-          <div class="tag-list">${tagsHtml}</div>
-        </div>
+        <div class="badges"><div class="tag-list">${tagsHtml}</div></div>
       </article>
     `;
-    })
-    .join('');
+  }).join('');
 
   cardsEl.querySelectorAll('.tag-btn[data-tag]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -395,17 +416,15 @@ function render() {
 async function loadSheet() {
   statusEl.textContent = '読み込み中...';
   cardsEl.innerHTML = '';
-
   const res = await fetch(SHEET_CSV_URL);
   if (!res.ok) {
     throw new Error('シートを取得できませんでした。共有設定を確認してください。');
   }
-
   const csvText = await res.text();
   state.rows = toDataRows(parseCsv(csvText));
   await enrichTagReadings(state.rows);
   buildTagIndex(state.rows);
-  statusEl.textContent = '条件を指定して「検索」を押してください。';
+  statusEl.textContent = '条件を指定して検索してください。';
 }
 
 function init() {
@@ -414,15 +433,8 @@ function init() {
     return;
   }
 
-  const onFilterChange = () => {
-    refreshFreqView();
-    if (state.hasSearched) {
-      render();
-    }
-  };
+  renderFreqChips();
 
-  minFreq.addEventListener('change', onFilterChange);
-  minFreq.addEventListener('input', onFilterChange);
   tagInputEl.addEventListener('input', () => {
     state.selectedTagKey = '';
     renderTagSuggestions();
@@ -440,6 +452,7 @@ function init() {
       render();
     }
   });
+
   searchBtn.addEventListener('click', () => {
     state.selectedTagKey = findExactTagFromInput();
     tagSuggestEl.innerHTML = '';
@@ -458,8 +471,6 @@ function init() {
   loadSheet().catch((err) => {
     statusEl.textContent = err.message || String(err);
   });
-
-  refreshFreqView();
 }
 
 init();

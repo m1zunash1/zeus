@@ -37,20 +37,21 @@ h1 {
   text-align: center;
   font-family: "Montserrat", sans-serif;
   font-size: clamp(58px, 10vw, 112px);
+  font-weight: 600;
   line-height: 0.94;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: #0c0e10;
   text-shadow: 1px 1px 0 #fff, -1px -1px 0 #d9dde3;
 }
 
 .controls-wrap {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: 220px 360px 56px;
-  gap: 12px;
+  grid-template-columns: minmax(260px, 320px) minmax(260px, 360px) 56px;
+  gap: 16px;
   align-items: center;
   justify-content: center;
 }
@@ -86,60 +87,81 @@ select:hover {
 }
 
 .freq-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 70px;
+  min-width: 0;
+}
+
+.freq-chips {
+  font-family: "Montserrat", sans-serif;
+  width: 100%;
+  height: 70px;
+  padding: 8px;
+  border-radius: 9999px;
   display: grid;
-  gap: 8px;
-  height: 58px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--surface-soft);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px;
+  background: #eff1f5;
   box-shadow:
-    2px 2px 5px #d4d8df,
+    2px 2px 5px #d1d6de,
     -2px -2px 5px #ffffff;
-  align-content: space-between;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.freq-view {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
-input[type="range"] {
-  appearance: none;
-  height: 8px;
-  padding: 0;
-  background: linear-gradient(180deg, #d8dce3, #cfd4dc);
-  box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.8), inset -1px -1px 2px rgba(135, 141, 151, 0.22);
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #111417;
+.freq-chip {
+  font-family: "Montserrat", sans-serif;
   border: none;
-  box-shadow: 2px 2px 4px rgba(122, 128, 137, 0.36);
+  background: transparent;
+  color: #6f7783;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  justify-self: center;
+  padding: 0 4px;
+  border-radius: 50%;
   cursor: pointer;
+  transition: transform 120ms ease, color 120ms ease, background 120ms ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #111417;
-  border: none;
-  box-shadow: 2px 2px 4px rgba(122, 128, 137, 0.36);
-  cursor: pointer;
+.freq-chip[data-value=""] {
+  width: 42px;
+  height: 42px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.freq-chip:hover {
+  transform: translateY(-1px);
+  color: #242a32;
+  background: rgba(24, 28, 34, 0.06);
+}
+
+.freq-chip.active {
+  color: #fff;
+  background: #151a20;
+  box-shadow: 1px 1px 2px rgba(103, 110, 122, 0.28);
 }
 
 .tag-picker {
   position: relative;
-  height: 58px;
+  height: 70px;
+  min-width: 0;
 }
 
 .tag-picker input {
-  height: 58px;
+  height: 70px;
+  border-radius: 9999px;
 }
 
 .tag-suggest {
@@ -179,7 +201,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .tag-option::before {
-  content: "> ";
+  content: "▶︎ ";
   color: #434a53;
 }
 
@@ -208,7 +230,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .search-btn:hover {
-  transform: translateY(-1px) scale(1.01);
+  transform: translateY(-1px) scale(1.02);
   filter: brightness(1.04);
 }
 
@@ -230,9 +252,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .status {
-  margin-top: 10px;
+  margin-top: 14px;
   margin-bottom: 0;
-  min-height: 20px;
+  min-height: 24px;
   font-weight: 700;
   color: #3e444c;
 }
@@ -240,14 +262,14 @@ input[type="range"]::-moz-range-thumb {
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+  gap: 18px;
 }
 
 .card {
   position: relative;
   display: grid;
-  gap: 10px;
-  padding: 44px 14px 14px;
+  gap: 12px;
+  padding: 46px 16px 16px;
   border-radius: 20px;
   background: var(--surface);
   box-shadow:
@@ -353,6 +375,12 @@ input::placeholder {
 @media (max-width: 760px) {
   .controls {
     grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .freq-control,
+  .tag-picker {
+    width: 100%;
   }
 
   .search-btn {

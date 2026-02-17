@@ -6,7 +6,7 @@
     <title>ZEUS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=M+PLUS+1p:wght@400;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -15,8 +15,8 @@
       <div class="controls-wrap">
         <div class="controls">
           <div class="freq-control">
-            <div id="freqView" class="freq-view" aria-live="polite">★</div>
-            <input id="minFreq" type="range" min="1" max="5" step="1" value="1" />
+            <input id="freqValue" type="hidden" value="" />
+            <div id="freqChips" class="freq-chips" aria-label="頻度"></div>
           </div>
           <div class="tag-picker">
             <input id="tagInput" type="text" placeholder="タグを検索" />
