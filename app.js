@@ -1,6 +1,8 @@
 const SHEET_ID = '1NU7bDfFbkyvyq8qEMARUixSO2jJOhGvljidnwo5Gq2c';
 const GID = '0';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
+const PASSWORD_HASH_HEX = 'c8ccaa4383657cd5e791388d7e5bdac754d834bd2509a22017e0419fb1f2344e';
+const AUTH_KEY = 'zeus_auth_ok_v1';
 
 const freqValueEl = document.getElementById('freqValue');
 const freqChipsEl = document.getElementById('freqChips');
@@ -9,6 +11,10 @@ const tagInputEl = document.getElementById('tagInput');
 const tagSuggestEl = document.getElementById('tagSuggest');
 const statusEl = document.getElementById('status');
 const cardsEl = document.getElementById('cards');
+const authGateEl = document.getElementById('authGate');
+const authPasswordEl = document.getElementById('authPassword');
+const authSubmitEl = document.getElementById('authSubmit');
+const authErrorEl = document.getElementById('authError');
 
 const state = {
   rows: [],
@@ -72,6 +78,50 @@ let tokenizerPromise = null;
 
 function hasCoreUi() {
   return Boolean(freqValueEl && freqChipsEl && searchBtn && tagInputEl && tagSuggestEl && statusEl && cardsEl);
+}
+
+async function sha256Hex(text) {
+  if (!window.crypto || !window.crypto.subtle) {
+    return '';
+  }
+  const data = new TextEncoder().encode(text);
+  const digest = await window.crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setupSimpleAuth(onSuccess) {
+  if (!authGateEl || !authPasswordEl || !authSubmitEl || !authErrorEl) {
+    onSuccess();
+    return;
+  }
+  if (sessionStorage.getItem(AUTH_KEY) === '1') {
+    authGateEl.classList.add('hidden');
+    onSuccess();
+    return;
+  }
+
+  const verify = async () => {
+    const input = authPasswordEl.value;
+    const hashed = await sha256Hex(input);
+    if (hashed && hashed === PASSWORD_HASH_HEX) {
+      sessionStorage.setItem(AUTH_KEY, '1');
+      authErrorEl.textContent = '';
+      authGateEl.classList.add('hidden');
+      onSuccess();
+      return;
+    }
+    authErrorEl.textContent = 'パスワードが違います';
+  };
+
+  authSubmitEl.addEventListener('click', () => {
+    verify();
+  });
+  authPasswordEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      verify();
+    }
+  });
 }
 
 function normalize(s) {
@@ -566,4 +616,4 @@ function init() {
   });
 }
 
-init();
+setupSimpleAuth(init);

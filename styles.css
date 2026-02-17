@@ -14,6 +14,73 @@
   box-sizing: border-box;
 }
 
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(233, 234, 237, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.auth-gate.hidden {
+  display: none;
+}
+
+.auth-card {
+  width: min(420px, 92vw);
+  padding: 22px;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow:
+    3px 3px 7px #d0d5dc,
+    -3px -3px 7px #ffffff;
+  display: grid;
+  gap: 10px;
+}
+
+.auth-card h2 {
+  margin: 0;
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  font-size: 34px;
+  letter-spacing: 0.12em;
+}
+
+.auth-card p {
+  margin: 0;
+  text-align: center;
+  color: #4e5560;
+  font-size: 13px;
+}
+
+.auth-card input {
+  text-align: center;
+  height: 52px;
+  border-radius: 9999px;
+}
+
+.auth-card button {
+  height: 46px;
+  border: none;
+  border-radius: 9999px;
+  background: #151a20;
+  color: #fff;
+  font-family: "Montserrat", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.auth-error {
+  min-height: 16px;
+  text-align: center;
+  color: #b3262d;
+  font-size: 12px;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
