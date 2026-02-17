@@ -380,10 +380,10 @@ function render() {
         : r.tags.map((t) => `<button type="button" class="tag-btn" data-tag="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`).join('');
       return `
       <article class="card">
+        <span class="badge freq-corner">${escapeHtml(freqStars(r.freq))}</span>
         <div class="memo">${escapeHtml(r.memo)}</div>
         ${subMemoHtml}
         <div class="badges">
-          <span class="badge freq-only">${escapeHtml(freqStars(r.freq))}</span>
           <div class="tag-list">${tagsHtml}</div>
         </div>
       </article>

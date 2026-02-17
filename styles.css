@@ -185,10 +185,11 @@ select:hover {
 }
 
 .card {
+  position: relative;
   background: #fff;
   border: 1px solid #f2c4db;
   border-radius: 16px;
-  padding: 12px;
+  padding: 40px 12px 12px;
   display: grid;
   gap: 8px;
   transition: transform 140ms ease, box-shadow 140ms ease;
@@ -227,9 +228,13 @@ select:hover {
   font-weight: 700;
 }
 
-.badge.freq-only {
+.badge.freq-corner {
+  position: absolute;
+  top: 10px;
+  left: 10px;
   min-width: 54px;
   text-align: center;
+  background: #ffd9eb;
 }
 
 .tag-list {
