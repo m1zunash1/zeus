@@ -26,6 +26,19 @@ const FREQ_CHOICES = [
   { value: '5', label: '5' },
 ];
 
+const FALLBACK_TAG_READINGS = {
+  動物: 'どうぶつ',
+  植物: 'しょくぶつ',
+  食べ物: 'たべもの',
+  食物: 'しょくもつ',
+  国語: 'こくご',
+  算数: 'さんすう',
+  数学: 'すうがく',
+  理科: 'りか',
+  社会: 'しゃかい',
+  英語: 'えいご',
+};
+
 let tokenizer = null;
 let tokenizerPromise = null;
 
@@ -120,7 +133,7 @@ async function ensureTokenizer() {
     return null;
   }
   tokenizerPromise = new Promise((resolve) => {
-    window.kuromoji.builder({ dictPath: 'https://unpkg.com/kuromoji@0.1.2/dict/' }).build((err, built) => {
+    window.kuromoji.builder({ dictPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' }).build((err, built) => {
       if (err || !built) {
         resolve(null);
         return;
@@ -217,6 +230,20 @@ function toDataRows(csvRows) {
 }
 
 async function enrichTagReadings(rows) {
+  // 先に既知タグは即時フォールバックを入れる。
+  for (const row of rows) {
+    for (const tag of row.tags) {
+      if (tag.reading) {
+        continue;
+      }
+      const fallback = FALLBACK_TAG_READINGS[tag.label];
+      if (fallback) {
+        tag.reading = fallback;
+        tag.foldedReading = kanaFold(fallback);
+      }
+    }
+  }
+
   const tk = await ensureTokenizer();
   if (!tk) {
     return;

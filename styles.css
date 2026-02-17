@@ -162,6 +162,7 @@ select:hover {
 .tag-picker input {
   height: 70px;
   border-radius: 9999px;
+  text-align: center;
 }
 
 .tag-suggest {
@@ -273,16 +274,16 @@ select:hover {
   border-radius: 20px;
   background: var(--surface);
   box-shadow:
-    2px 2px 5px #d6dae1,
-    -2px -2px 5px #ffffff;
+    1px 1px 3px #d8dce3,
+    -1px -1px 3px #ffffff;
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
 .card:hover {
   transform: translateY(-1px);
   box-shadow:
-    3px 3px 7px #d2d6de,
-    -3px -3px 7px #ffffff;
+    2px 2px 4px #d5d9e0,
+    -2px -2px 4px #ffffff;
 }
 
 .memo {
@@ -341,8 +342,8 @@ select:hover {
 .tag-btn {
   border: none;
   border-radius: 999px;
-  background: #f7f8fa;
-  color: #20252b;
+  background: #151a20;
+  color: #fff;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 800;
@@ -352,6 +353,7 @@ select:hover {
 
 .tag-btn:hover {
   transform: translateY(-1px);
+  background: #0f1318;
   box-shadow: 1px 1px 3px #d6dae1, -1px -1px 3px #ffffff;
 }
 
@@ -384,6 +386,6 @@ input::placeholder {
   }
 
   .search-btn {
-    justify-self: start;
+    justify-self: center;
   }
 }
