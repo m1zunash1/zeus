@@ -28,9 +28,37 @@ const FREQ_CHOICES = [
 
 const FALLBACK_TAG_READINGS = {
   動物: 'どうぶつ',
+  曜日: 'ようび',
+  月曜日: 'げつようび',
+  火曜日: 'かようび',
+  水曜日: 'すいようび',
+  木曜日: 'もくようび',
+  金曜日: 'きんようび',
+  土曜日: 'どようび',
+  日曜日: 'にちようび',
   植物: 'しょくぶつ',
   食べ物: 'たべもの',
   食物: 'しょくもつ',
+  国語: 'こくご',
+  算数: 'さんすう',
+  数学: 'すうがく',
+  理科: 'りか',
+  社会: 'しゃかい',
+  英語: 'えいご',
+};
+
+const COMMON_READING_PARTS = {
+  曜日: 'ようび',
+  月曜: 'げつよう',
+  火曜: 'かよう',
+  水曜: 'すいよう',
+  木曜: 'もくよう',
+  金曜: 'きんよう',
+  土曜: 'どよう',
+  日曜: 'にちよう',
+  動物: 'どうぶつ',
+  植物: 'しょくぶつ',
+  食べ物: 'たべもの',
   国語: 'こくご',
   算数: 'さんすう',
   数学: 'すうがく',
@@ -98,6 +126,44 @@ function parseTagToken(token) {
     foldedLabel: kanaFold(t),
     foldedReading: '',
   };
+}
+
+function estimateReadingByParts(label) {
+  const s = normalize(label);
+  if (!s) {
+    return '';
+  }
+  if (FALLBACK_TAG_READINGS[s]) {
+    return FALLBACK_TAG_READINGS[s];
+  }
+
+  const keys = Object.keys(COMMON_READING_PARTS).sort((a, b) => b.length - a.length);
+  let out = '';
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    const code = ch.charCodeAt(0);
+    // keep kana/latin/numbers as-is
+    if ((code >= 0x3040 && code <= 0x30ff) || /[a-z0-9]/i.test(ch)) {
+      out += toHiragana(ch);
+      i += 1;
+      continue;
+    }
+    let matched = false;
+    for (const k of keys) {
+      if (s.startsWith(k, i)) {
+        out += COMMON_READING_PARTS[k];
+        i += k.length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // unknown kanji block: give up so wrong reading is not added
+      return '';
+    }
+  }
+  return out;
 }
 
 function getTokenReading(token) {
@@ -236,7 +302,7 @@ async function enrichTagReadings(rows) {
       if (tag.reading) {
         continue;
       }
-      const fallback = FALLBACK_TAG_READINGS[tag.label];
+      const fallback = estimateReadingByParts(tag.label);
       if (fallback) {
         tag.reading = fallback;
         tag.foldedReading = kanaFold(fallback);
