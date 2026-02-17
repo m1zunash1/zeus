@@ -192,13 +192,20 @@ function toDataRows(csvRows) {
   const freqIdx = headerIndex(headers, ['頻度', 'freq', 'frequency']);
   const tagsIdx = headerIndex(headers, ['タグ', 'tag', 'tags']);
 
+  // ヘッダー名が想定と少し違っても、先頭4列をフォールバックとして使う。
+  const iMemo = memoIdx >= 0 ? memoIdx : 0;
+  const iSubMemo = subMemoIdx >= 0 ? subMemoIdx : 1;
+  const iFreq = freqIdx >= 0 ? freqIdx : 2;
+  const iTags = tagsIdx >= 0 ? tagsIdx : 3;
+
   return csvRows
     .slice(1)
     .map((r) => {
-      const memo = normalize(r[memoIdx] || '');
-      const subMemo = normalize(r[subMemoIdx] || '');
-      const freq = Number(normalize(r[freqIdx] || ''));
-      const tagsRaw = normalize(r[tagsIdx] || '');
+      const memo = normalize(r[iMemo] || '');
+      const subMemo = normalize(r[iSubMemo] || '');
+      const freqRaw = normalize(r[iFreq] || '');
+      const freq = /^[1-5]$/.test(freqRaw) ? Number(freqRaw) : null;
+      const tagsRaw = normalize(r[iTags] || '');
       const tags = tagsRaw
         .split(/[,\u3001]/)
         .map((x) => parseTagToken(x))
@@ -263,7 +270,7 @@ function filteredRows() {
   const selected = [...state.selectedTags];
 
   return state.rows.filter((r) => {
-    if (Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
+    if (r.freq !== null && Number.isFinite(r.freq) && (r.freq < lo || r.freq > hi)) {
       return false;
     }
     if (selected.length > 0) {
