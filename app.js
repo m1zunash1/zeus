@@ -255,11 +255,15 @@ function freqStars(n) {
   return '★'.repeat(Math.max(1, Math.min(5, Math.round(v))));
 }
 
-function tagsText(tags) {
-  if (!tags || tags.length === 0) {
-    return '-';
+function splitSubMemoLines(text) {
+  const raw = normalize(text);
+  if (!raw) {
+    return [];
   }
-  return tags.map((x) => x.label).join(' / ');
+  return raw
+    .split(/(?:\\\\|¥¥|￥￥)/)
+    .map((x) => normalize(x))
+    .filter(Boolean);
 }
 
 function filteredRows() {
@@ -366,19 +370,41 @@ function render() {
   }
 
   cardsEl.innerHTML = rows
-    .map(
-      (r) => `
+    .map((r) => {
+      const subLines = splitSubMemoLines(r.subMemo);
+      const subMemoHtml = subLines.length <= 1
+        ? (subLines[0] ? `<div class="submemo">${escapeHtml(subLines[0])}</div>` : '')
+        : `<ul class="submemo-list">${subLines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+      const tagsHtml = r.tags.length === 0
+        ? '<span class="tag-btn empty">タグなし</span>'
+        : r.tags.map((t) => `<button type="button" class="tag-btn" data-tag="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`).join('');
+      return `
       <article class="card">
         <div class="memo">${escapeHtml(r.memo)}</div>
-        ${r.subMemo ? `<div class="submemo">${escapeHtml(r.subMemo)}</div>` : ''}
+        ${subMemoHtml}
         <div class="badges">
-          <span class="badge">頻度: ${escapeHtml(freqStars(r.freq))}</span>
-          <span class="badge">タグ: ${escapeHtml(tagsText(r.tags))}</span>
+          <span class="badge freq-only">${escapeHtml(freqStars(r.freq))}</span>
+          <div class="tag-list">${tagsHtml}</div>
         </div>
       </article>
-    `
-    )
+    `;
+    })
     .join('');
+
+  cardsEl.querySelectorAll('.tag-btn[data-tag]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const key = normalize(el.getAttribute('data-tag'));
+      if (!key) {
+        return;
+      }
+      state.selectedTags.clear();
+      state.selectedTags.add(key);
+      renderSelectedTags();
+      renderTagSuggestions();
+      state.hasSearched = true;
+      render();
+    });
+  });
 }
 
 async function loadSheet() {
